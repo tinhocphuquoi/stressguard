@@ -122,4 +122,4 @@ with tab5:
             else:
                 st.warning("Chưa có cuộc trò chuyện nào để lưu.")
 
-st.caption("AI StressGuard Student • Trần Quốc Thông")
+st.caption("AI StressGuard Student • Trần Quốc ThôngPQ  ")
