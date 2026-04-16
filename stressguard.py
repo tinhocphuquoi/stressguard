@@ -9,7 +9,7 @@ from PIL import Image
 
 st.set_page_config(page_title="AI StressGuard Student", page_icon="🧠", layout="wide")
 st.title("🧠 AI StressGuard Student")
-st.markdown("**Trợ lý sức khỏe tâm lý THPT** – Chatbot AI 24/7 + Phân tích cảm xúc")
+st.markdown("**Trợ lý sức khỏe tâm lý học sinh** – Chatbot AI 24/7 + Phân tích cảm xúc")
 
 # Sidebar
 with st.sidebar:
@@ -122,4 +122,4 @@ with tab5:
             else:
                 st.warning("Chưa có cuộc trò chuyện nào để lưu.")
 
-st.caption("AI StressGuard Student • Gemini Flash-Lite • Chatbot 24/7 • Dành cho thi HSG Tin học 2026")
+st.caption("AI StressGuard Student • Trần Quốc Thông")
