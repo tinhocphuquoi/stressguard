@@ -43,6 +43,9 @@ def save_data(data_list):
 if "data" not in st.session_state:
     st.session_state.data = load_data()
 
+if "latest_ai_advice" not in st.session_state:
+    st.session_state.latest_ai_advice = None
+
 # ====================== TABS ======================
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📝 Nhật ký cá nhân", 
@@ -74,7 +77,7 @@ with tab1:
 Phân tích mức stress {mood}/10, cảm xúc {emotion}, nhật ký: {note}. 
 Đưa lời khuyên ngắn gọn, tích cực, dễ thực hiện bằng tiếng Việt."""
                     response = model.generate_content(prompt)
-                    ai_advice = response.text
+                    ai_advice = response.text.strip()
                     
                     entry = {
                         "date": datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%Y-%m-%d %H:%M"),
@@ -82,34 +85,16 @@ Phân tích mức stress {mood}/10, cảm xúc {emotion}, nhật ký: {note}.
                     }
                     st.session_state.data.append(entry)
                     save_data(st.session_state.data)
-                    st.success("✅ Đã lưu nhật ký và phân tích thành công!")
-                    st.rerun()
+                    st.session_state.latest_ai_advice = ai_advice
+                    st.success("✅ Đã lưu và phân tích thành công!")
                 except Exception as e:
                     st.error(f"❌ Lỗi AI: {e}")
 
-# ==================== TAB 3: Thống kê cá nhân (ĐÃ SỬA - XÓA SẠCH BIỂU ĐỒ + BẢNG) ====================
-with tab3:
-    st.subheader("📊 Thống kê cá nhân")
-    if st.session_state.data:
-        df = pd.DataFrame(st.session_state.data)
-        df['date'] = pd.to_datetime(df['date'])
-        
-        st.plotly_chart(px.line(df, x='date', y='mood', markers=True, title="Mức stress theo thời gian"), use_container_width=True)
-        st.dataframe(df[['date', 'mood', 'emotion', 'note']], use_container_width=True)
-        
-        st.markdown("---")
-        if st.button("🗑️ Xóa toàn bộ nhật ký cá nhân", type="secondary"):
-            if st.checkbox("Tôi chắc chắn muốn xóa HẾT dữ liệu và biểu đồ (không thể khôi phục)"):
-                st.session_state.data = []
-                save_data([])
-                if DATA_FILE.exists():
-                    DATA_FILE.unlink()          # Xóa file vật lý
-                st.success("✅ Đã xóa toàn bộ nhật ký, bảng dữ liệu và biểu đồ!")
-                st.rerun()                      # Reload ngay để xóa biểu đồ + bảng
-    else:
-        st.info("Chưa có dữ liệu nhật ký nào.")
+    if st.session_state.latest_ai_advice:
+        st.markdown("### 🤖 Phân tích từ AI:")
+        st.write(st.session_state.latest_ai_advice)
 
-# ==================== TAB 2, 4, 5 (đầy đủ) ====================
+# ==================== TAB 2: Phân tích ảnh mặt ====================
 with tab2:
     st.subheader("📸 Upload ảnh khuôn mặt")
     uploaded_file = st.file_uploader("Chọn ảnh selfie", type=["jpg", "jpeg", "png"])
@@ -125,6 +110,28 @@ with tab2:
                     response = model.generate_content(["Phân tích cảm xúc khuôn mặt của học sinh THCS và THPT, đưa lời khuyên ngắn gọn bằng tiếng Việt.", image])
                     st.write(response.text)
 
+# ==================== TAB 3: Thống kê cá nhân (có nút xóa) ====================
+with tab3:
+    st.subheader("📊 Thống kê cá nhân")
+    if st.session_state.data:
+        df = pd.DataFrame(st.session_state.data)
+        df['date'] = pd.to_datetime(df['date'])
+        st.plotly_chart(px.line(df, x='date', y='mood', markers=True, title="Mức stress theo thời gian"), use_container_width=True)
+        st.dataframe(df[['date', 'mood', 'emotion', 'note']], use_container_width=True)
+        
+        st.markdown("---")
+        if st.button("🗑️ Xóa toàn bộ nhật ký cá nhân", type="secondary"):
+            if st.checkbox("Tôi chắc chắn muốn xóa HẾT dữ liệu (không thể khôi phục)"):
+                st.session_state.data = []
+                save_data([])
+                if DATA_FILE.exists():
+                    DATA_FILE.unlink()
+                st.success("✅ Đã xóa toàn bộ nhật ký!")
+                st.rerun()
+    else:
+        st.info("Chưa có dữ liệu nhật ký.")
+
+# ==================== TAB 4: Báo cáo Lớp ====================
 with tab4:
     st.subheader("📋 Báo cáo lớp học (Giáo viên)")
     password = st.text_input("Nhập mật khẩu giáo viên", type="password")
@@ -140,6 +147,7 @@ with tab4:
         if password:
             st.error("Mật khẩu sai!")
 
+# ==================== TAB 5: Chatbot AI 24/7 ====================
 with tab5:
     st.subheader("💬 Chatbot AI trò chuyện trực tiếp 24/7")
     st.caption("⏰ Giờ Việt Nam (UTC+7)")
@@ -184,7 +192,8 @@ with tab5:
         if st.button("💾 Lưu cuộc trò chuyện vào nhật ký", use_container_width=True):
             if len(st.session_state.messages) > 1:
                 chat_text = "\n".join([f"{m['timestamp']} {m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
-                entry = {"date": datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%Y-%m-%d %H:%M"), "mood": 5, "emotion": "Từ chatbot", "note": chat_text, "ai_advice": "Đã lưu từ chatbot"}
+                entry = {"date": datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%Y-%m-%d %H:%M"), 
+                         "mood": 5, "emotion": "Từ chatbot", "note": chat_text, "ai_advice": "Đã lưu từ chatbot"}
                 st.session_state.data.append(entry)
                 save_data(st.session_state.data)
                 st.success("✅ Đã lưu cuộc trò chuyện vào nhật ký!")
