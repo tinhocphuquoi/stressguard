@@ -35,7 +35,6 @@ def save_data(data_list):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data_list, f, ensure_ascii=False, indent=2)
 
-# Sử dụng session_state để dữ liệu được đồng bộ toàn app
 if "data" not in st.session_state:
     st.session_state.data = load_data()
 
@@ -64,7 +63,9 @@ with tab1:
             st.error("Vui lòng nhập Gemini API Key!")
         else:
             model = genai.GenerativeModel(model_name)
-            prompt = f"""Bạn là chuyên gia tâm lý cho học sinh THPT Việt Nam. Phân tích mức stress {mood}/10, cảm xúc {emotion}, nhật ký: {note}. Đưa lời khuyên ngắn gọn, tích cực bằng tiếng Việt."""
+            prompt = f"""Bạn là chuyên gia tâm lý cho học sinh THPT Việt Nam. 
+Phân tích mức stress {mood}/10, cảm xúc {emotion}, nhật ký: {note}. 
+Đưa lời khuyên ngắn gọn, tích cực bằng tiếng Việt."""
             response = model.generate_content(prompt)
             ai_advice = response.text
             
@@ -75,7 +76,25 @@ with tab1:
             st.write(ai_advice)
             st.rerun()
 
-# ==================== TAB 3: Thống kê cá nhân (ĐÃ SỬA) ====================
+# ==================== TAB 2: Phân tích ảnh mặt ====================
+with tab2:
+    st.subheader("📸 Upload ảnh khuôn mặt")
+    uploaded_file = st.file_uploader("Chọn ảnh selfie", type=["jpg", "jpeg", "png"])
+    if uploaded_file:
+        image = Image.open(uploaded_file)
+        st.image(image, use_column_width=True)
+        if st.button("🔍 Phân tích cảm xúc bằng AI"):
+            if not api_key:
+                st.error("Vui lòng nhập API Key!")
+            else:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content([
+                    "Phân tích cảm xúc khuôn mặt của học sinh THPT và đưa lời khuyên ngắn gọn bằng tiếng Việt.", 
+                    image
+                ])
+                st.write(response.text)
+
+# ==================== TAB 3: Thống kê cá nhân ====================
 with tab3:
     st.subheader("📊 Thống kê cá nhân")
     if st.session_state.data:
@@ -84,19 +103,80 @@ with tab3:
         st.plotly_chart(px.line(df, x='date', y='mood', markers=True, title="Mức stress theo thời gian"), use_container_width=True)
         st.dataframe(df[['date', 'mood', 'emotion', 'note']], use_container_width=True)
         
-        # NÚT XÓA ĐÃ ĐƯỢC SỬA
         st.markdown("---")
         if st.button("🗑️ Xóa toàn bộ nhật ký cá nhân", type="secondary"):
-            if st.checkbox("Tôi chắc chắn muốn xóa HẾT dữ liệu (không thể khôi phục lại)"):
+            if st.checkbox("Tôi chắc chắn muốn xóa HẾT dữ liệu (không thể khôi phục)"):
                 st.session_state.data = []
                 save_data([])
                 if DATA_FILE.exists():
-                    DATA_FILE.unlink()   # Xóa file vật lý
+                    DATA_FILE.unlink()
                 st.success("✅ Đã xóa toàn bộ nhật ký cá nhân!")
                 st.rerun()
     else:
-        st.info("Chưa có dữ liệu nhật ký nào.")
+        st.info("Chưa có dữ liệu nhật ký.")
 
-# (Các tab còn lại giữ nguyên như code trước, mình rút gọn để code ngắn hơn)
+# ==================== TAB 4: Báo cáo Lớp ====================
+with tab4:
+    st.subheader("📋 Báo cáo lớp học (Giáo viên)")
+    password = st.text_input("Nhập mật khẩu giáo viên", type="password")
+    if password == "giao_vien_2026":
+        if st.session_state.data:
+            df = pd.DataFrame(st.session_state.data)
+            st.metric("Stress trung bình lớp", f"{df['mood'].mean():.1f}/10")
+            st.plotly_chart(px.histogram(df, x='mood', title="Phân bố mức stress"), use_container_width=True)
+            st.dataframe(df[['date', 'mood', 'emotion']], use_container_width=True)
+        else:
+            st.info("Chưa có dữ liệu lớp nào.")
+    else:
+        if password:
+            st.error("Mật khẩu sai!")
+
+# ==================== TAB 5: Chatbot AI 24/7 ====================
+with tab5:
+    st.subheader("💬 Chatbot AI trò chuyện trực tiếp 24/7")
+    chat_style = st.selectbox("Phong cách trò chuyện", ["Thân thiện ❤️", "Chuyên nghiệp 📋", "Cân bằng ⚖️"])
+    
+    if "messages" not in st.session_state:
+        st.session_state.messages = [{"role": "assistant", "content": "Chào bạn! Mình là AI StressGuard. Hôm nay bạn muốn chia sẻ gì? ❤️", "timestamp": datetime.now().strftime("%H:%M")}]
+
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(f"**{msg.get('timestamp', '')}** — {msg['content']}")
+
+    if prompt := st.chat_input("Nhập tin nhắn của bạn..."):
+        timestamp = datetime.now().strftime("%H:%M")
+        st.session_state.messages.append({"role": "user", "content": prompt, "timestamp": timestamp})
+        with st.chat_message("user"):
+            st.markdown(f"**{timestamp}** — {prompt}")
+
+        with st.chat_message("assistant"):
+            with st.spinner("AI đang suy nghĩ..."):
+                model = genai.GenerativeModel(model_name)
+                style_prompt = {
+                    "Thân thiện ❤️": "Bạn là người bạn rất thân thiện, ấm áp, hay dùng emoji.",
+                    "Chuyên nghiệp 📋": "Bạn là chuyên gia tâm lý chuyên nghiệp, trả lời logic và rõ ràng.",
+                    "Cân bằng ⚖️": "Bạn vừa thân thiện vừa chuyên nghiệp."
+                }[chat_style]
+                
+                full_prompt = style_prompt + "\n\nLịch sử:\n" + "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages])
+                response = model.generate_content(full_prompt)
+                ai_reply = response.text
+                
+                st.markdown(f"**{timestamp}** — {ai_reply}")
+                st.session_state.messages.append({"role": "assistant", "content": ai_reply, "timestamp": timestamp})
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🗑️ Xóa lịch sử chat", use_container_width=True):
+            st.session_state.messages = [{"role": "assistant", "content": "Đã xóa lịch sử. Chúng ta bắt đầu lại nhé!", "timestamp": datetime.now().strftime("%H:%M")}]
+            st.rerun()
+    with col2:
+        if st.button("💾 Lưu cuộc trò chuyện vào nhật ký", use_container_width=True):
+            if len(st.session_state.messages) > 1:
+                chat_text = "\n".join([f"{m['timestamp']} {m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
+                entry = {"date": datetime.now().strftime("%Y-%m-%d %H:%M"), "mood": 5, "emotion": "Từ chatbot", "note": chat_text, "ai_advice": "Đã lưu từ chatbot"}
+                st.session_state.data.append(entry)
+                save_data(st.session_state.data)
+                st.success("✅ Đã lưu cuộc trò chuyện vào nhật ký!")
 
 st.caption("AI StressGuard Student • Gemini Flash-Lite • Dành cho thi HSG Tin học 2026")
