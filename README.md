@@ -1,2 +1,2 @@
 # stressguard
-AI StressGuard Student – Trợ lý sức khỏe tâm lý HS THCS
+AI StressGuard Student – Trợ lý sức khỏe tâm lý hoc sinh
